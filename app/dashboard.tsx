@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CallEvaluation, RubricScores } from "@/lib/types";
 
@@ -48,18 +48,18 @@ export default function Dashboard({ initialData, mode }: Props) {
     <aside className="sidebar">
       <button className="brand" onClick={() => setTab("overview")} aria-label="CallLens home"><span className="brand-mark"><i/><i/><i/></span><span>CallLens</span></button>
       <nav aria-label="Main navigation">
-        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}><span>⌂</span> Overview</button>
-        <button className={tab === "calls" ? "active" : ""} onClick={() => setTab("calls")}><span>◫</span> All calls</button>
-        <button className={tab === "agents" ? "active" : ""} onClick={() => setTab("agents")}><span>♙</span> Agents</button>
+        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")} aria-current={tab === "overview" ? "page" : undefined}><span aria-hidden="true">⌂</span> Overview</button>
+        <button className={tab === "calls" ? "active" : ""} onClick={() => setTab("calls")} aria-current={tab === "calls" ? "page" : undefined}><span aria-hidden="true">◫</span> All calls</button>
+        <button className={tab === "agents" ? "active" : ""} onClick={() => setTab("agents")} aria-current={tab === "agents" ? "page" : undefined}><span aria-hidden="true">♙</span> Agents</button>
       </nav>
       <div className="sidebar-foot"><div className="workspace-avatar">NS</div><div><strong>Northstar Sales</strong><span>MVP workspace</span></div><button aria-label="Workspace menu">•••</button></div>
     </aside>
     <main>
-      <header className="topbar"><div><span className={`status-dot ${mode}`} />{mode === "live" ? "Live data" : "Demo data"}</div><button className="refresh" onClick={refresh} disabled={isPending}>{isPending ? "Refreshing…" : "↻  Refresh"}</button><div className="user-avatar">AM</div></header>
+      <header className="topbar"><div><span className={`status-dot ${mode}`} />{mode === "live" ? "Live data" : "Demo data"}</div><button className="refresh" onClick={refresh} disabled={isPending} aria-label="Refresh dashboard data">{isPending ? "Refreshing…" : "↻ Refresh"}</button><div className="user-avatar" aria-label="Account: AM">AM</div></header>
       <div className="content">
         <section className="page-heading">
           <div><p className="eyebrow">{tab === "overview" ? "QUALITY OVERVIEW" : tab === "calls" ? "CONVERSATION LIBRARY" : "TEAM PERFORMANCE"}</p><h1>{tab === "overview" ? "Your team at a glance" : tab === "calls" ? "Every conversation, scored" : "Agent performance"}</h1><p>{tab === "overview" ? "See what’s working and where your team can improve." : tab === "calls" ? "Search, review, and learn from every customer conversation." : "Compare coaching signals and recognize your strongest performers."}</p></div>
-          <div className="period-control"><button>Last 30 days</button><button>⌄</button></div>
+          <span className="period-control">All-time data</span>
         </section>
         {tab !== "agents" && <section className="metrics-grid" aria-label="Key metrics">
           <Metric label="Average quality score" value={`${average}`} suffix="/100" delta="+4.2%" tone="mint" />
@@ -83,24 +83,33 @@ export default function Dashboard({ initialData, mode }: Props) {
 }
 
 function Metric({ label, value, suffix, delta, tone }: { label: string; value: string; suffix?: string; delta: string; tone: string }) {
-  return <article className={`metric-card ${tone}`}><div className="metric-icon">{tone === "mint" ? "↗" : tone === "blue" ? "◫" : tone === "purple" ? "♥" : "◎"}</div><p>{label}</p><strong>{value}<small>{suffix}</small></strong><span>{delta}</span></article>;
+  return <article className={`metric-card ${tone}`}><div className="metric-icon" aria-hidden="true">{tone === "mint" ? "↗" : tone === "blue" ? "◫" : tone === "purple" ? "♥" : "◎"}</div><p>{label}</p><strong>{value}<small>{suffix}</small></strong><span>{delta}</span></article>;
 }
 
 function CallTable({ calls, agents, query, setQuery, agentFilter, setAgentFilter, onSelect, onViewAll, compact = false }: {
   calls: CallEvaluation[]; agents: string[]; query: string; setQuery: (v: string) => void; agentFilter: string; setAgentFilter: (v: string) => void; onSelect: (call: CallEvaluation) => void; onViewAll?: () => void; compact?: boolean;
 }) {
   return <section className="panel calls-panel">
-    <div className="panel-title calls-title"><div><h2>{compact ? "Recent calls" : "Call history"}</h2><p>{compact ? "Latest analyzed conversations" : `${calls.length} conversations shown`}</p></div><div className="table-tools"><label className="search"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search calls…" aria-label="Search calls" /></label><select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} aria-label="Filter by agent"><option value="all">All agents</option>{agents.map((agent) => <option key={agent}>{agent}</option>)}</select>{compact && <button className="view-all" onClick={onViewAll}>View all →</button>}</div></div>
-    <div className="table-wrap"><table><thead><tr><th>Contact</th><th>Agent</th><th>Date & duration</th><th>Outcome</th><th>Sentiment</th><th>Score</th><th /></tr></thead><tbody>{calls.map((call, index) => <tr key={call.id} onClick={() => onSelect(call)}>
-      <td><div className="contact-cell"><span className={`contact-avatar contact-${index % 4}`}>{initials(call.contact_name)}</span><div><strong>{call.contact_name}</strong><small>{call.direction === "inbound" ? "Inbound call" : "Outbound call"}</small></div></div></td>
-      <td><span className="agent-name">{call.agent_name}</span></td><td><strong className="date">{fmtDate(call.started_at)}</strong><small>{fmtDuration(call.duration_seconds)}</small></td>
-      <td><span className={`outcome ${call.outcome}`}>{call.outcome.replace("_", " ")}</span></td><td><span className={`sentiment ${call.sentiment}`}><i />{call.sentiment}</span></td><td><span className={`table-score ${scoreClass(call.overall_score)}`}>{call.overall_score}</span></td><td><button aria-label={`View ${call.contact_name} call`}>›</button></td>
+    <div className="panel-title calls-title"><div><h2>{compact ? "Recent calls" : "Call history"}</h2><p>{compact ? "Latest analyzed conversations" : `${calls.length} conversations shown`}</p></div><div className="table-tools"><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search calls…" aria-label="Search calls" /></label><select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} aria-label="Filter by agent"><option value="all">All agents</option>{agents.map((agent) => <option key={agent}>{agent}</option>)}</select>{compact && <button className="view-all" onClick={onViewAll}>View all →</button>}</div></div>
+    <div className="table-wrap"><table><thead><tr><th>Contact</th><th>Agent</th><th>Date & duration</th><th>Outcome</th><th>Sentiment</th><th>Score</th><th><span className="sr-only">Open</span></th></tr></thead><tbody>{calls.map((call, index) => <tr key={call.id} onClick={() => onSelect(call)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(call); } }} tabIndex={0} role="button" aria-label={`Review call with ${call.contact_name}`}>
+      <td data-label="Contact"><div className="contact-cell"><span className={`contact-avatar contact-${index % 4}`}>{initials(call.contact_name)}</span><div><strong>{call.contact_name}</strong><small>{call.direction === "inbound" ? "Inbound call" : "Outbound call"}</small></div></div></td>
+      <td data-label="Agent"><span className="agent-name">{call.agent_name}</span></td><td data-label="Date"><strong className="date">{fmtDate(call.started_at)}</strong><small>{fmtDuration(call.duration_seconds)}</small></td>
+      <td data-label="Outcome"><span className={`outcome ${call.outcome}`}>{call.outcome.replace("_", " ")}</span></td><td data-label="Sentiment"><span className={`sentiment ${call.sentiment}`}><i />{call.sentiment}</span></td><td data-label="Score"><span className={`table-score ${scoreClass(call.overall_score)}`}>{call.overall_score}</span></td><td className="row-action"><button aria-label={`View ${call.contact_name} call`} tabIndex={-1}>›</button></td>
     </tr>)}</tbody></table>{!calls.length && <div className="empty-state"><strong>No matching calls</strong><span>Try a different agent or search term.</span></div>}</div>
   </section>;
 }
 
 function CallDetail({ call, onClose }: { call: CallEvaluation; onClose: () => void }) {
   const [detailTab, setDetailTab] = useState<"insights" | "transcript" | "data">("insights");
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
   return <div className="modal-backdrop" onMouseDown={onClose}><aside className="detail-drawer" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Call details">
     <div className="drawer-head"><div><p>CALL REVIEW</p><h2>{call.contact_name}</h2><span>{call.agent_name} · {fmtDate(call.started_at)} · {fmtDuration(call.duration_seconds)}</span></div><button onClick={onClose} aria-label="Close details">×</button></div>
     <div className="drawer-score"><div className={`big-score ${scoreClass(call.overall_score)}`}><strong>{call.overall_score}</strong><span>QUALITY</span></div><div><span className={`outcome ${call.outcome}`}>{call.outcome.replace("_", " ")}</span><span className={`sentiment ${call.sentiment}`}><i />{call.sentiment}</span></div></div>
